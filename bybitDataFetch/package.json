@@ -1,0 +1,24 @@
+{
+  "name": "bybitdatafetch",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "app.js",
+  "scripts": {
+    "start": "node --no-warnings app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "async": "^3.2.6",
+    "ccxt": "^4.4.53",
+    "dotenv": "^16.4.7",
+    "p-limit": "^6.2.0",
+    "pg": "^8.13.1",
+    "pg-format": "^1.0.4",
+    "pg-promise": "^11.10.2",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0"
+  }
+}
