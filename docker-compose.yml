@@ -5,7 +5,7 @@ services:
     image: postgres:17
     container_name: postgres_db
     env_file:
-      - ./.env.postgres  # Указываем путь к файлу с переменными для PostgreSQL
+      - ./.env.postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -13,11 +13,11 @@ services:
     networks:
       - app_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 30s
+      timeout: 10s
       retries: 5
-    restart: unless-stopped  # Политика перезапуска
+    restart: unless-stopped
 
   bybit-data-fetch:
     build:
@@ -25,12 +25,12 @@ services:
       dockerfile: Dockerfile
     container_name: bybit_data_fetch
     env_file:
-      - ./bybitDataFetch/.env  # Используем существующий .env для микросервиса
+      - ./bybitDataFetch/.env
     depends_on:
       postgres:
         condition: service_healthy
     ports:
-      - "3001:3000"     # Порт хоста: Порт контейнера
+      - "3001:3000"
     networks:
       - app_network
     volumes:
