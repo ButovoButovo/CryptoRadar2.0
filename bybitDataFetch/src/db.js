@@ -17,7 +17,7 @@ const pool = new Pool({
 async function initDatabase() {
   try {
     const table = process.env.DB_TABLE_NAME;
-    const query = `
+    const createTableQuery = `
     CREATE TABLE IF NOT EXISTS ${table} (
       symbol VARCHAR(255) NOT NULL,
       timestamp_unix_utc BIGINT NOT NULL,
@@ -31,16 +31,22 @@ async function initDatabase() {
         to_timestamp(timestamp_unix_utc / 1000.0) AT TIME ZONE 'UTC'
       ) STORED,
       CONSTRAINT unique_symbol_timestamp UNIQUE (symbol, timestamp_unix_utc)
-    );
-  `;  
-    await pool.query(query);
-    
-    logger.info('Database initialized successfully');
+    );`;
+
+    const createIndexQuery = `
+    CREATE INDEX IF NOT EXISTS idx_ohlcv_symbol_timestamp_iso 
+    ON ${table} (symbol, timestamp_iso_utc DESC);`;
+
+    await pool.query(createTableQuery);
+    await pool.query(createIndexQuery);
+
+    logger.info('Database initialized successfully with indexes');
   } catch (error) {
     logger.error(`Database initialization failed: ${error.message}`);
     throw error;
   }
 }
+
 
 async function saveBulkOhlcvData(dataArray, collectedAt, retries = 3) {
   if (dataArray.length === 0) return;
