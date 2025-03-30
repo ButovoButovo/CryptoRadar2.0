@@ -1,0 +1,29 @@
+# Исключаем виртуальное окружение
+.venv/
+venv/
+ENV/
+env/
+
+# Исключаем кэшированные файлы Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Лог-файлы
+log/
+*.log
+
+# Файлы окружения
+.env
+
+# Файлы Docker
+Dockerfile*
+.dockerignore
+
+# Системные файлы
+.DS_Store
+Thumbs.db
+
+# Редакторские файлы
+*.swp
+*~

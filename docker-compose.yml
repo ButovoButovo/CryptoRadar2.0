@@ -19,6 +19,37 @@ services:
       retries: 5
     restart: unless-stopped
 
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - app_network
+    restart: unless-stopped
+
+  kafka:
+    image: confluentinc/cp-kafka:7.3.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+    networks:
+      - app_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "bash", "-c", "cub kafka-ready -b localhost:9092 1 20 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
   bybit-data-fetch:
     build:
       context: ./bybitDataFetch
@@ -29,6 +60,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
     ports:
       - "3001:3000"
     networks:
@@ -36,11 +69,63 @@ services:
     volumes:
       - app_logs:/app/logs
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      interval: 600s
+      timeout: 10s
+      retries: 3
+
+  bybit-data-calc:
+    build:
+      context: ./bybitDataCalc
+      dockerfile: Dockerfile
+    container_name: bybit_data_calc
+    env_file:
+      - ./bybitDataCalc/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - app_network
+    volumes:
+      - calc_logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'healthy'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3  
+
+  bybit-signals-calc:
+    build:
+      context: ./bybitSignalsCalc
+      dockerfile: Dockerfile
+    container_name: bybit_signals_calc
+    env_file:
+      - ./bybitSignalsCalc/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      bybit-data-calc:
+        condition: service_healthy
+    networks:
+      - app_network
+    volumes:
+      - signals_logs:/app/logs
+    restart: unless-stopped
 
 volumes:
   postgres_data:
     external: false
   app_logs:
+    external: false
+  calc_logs:
+    external: false
+  signals_logs:
     external: false
 
 networks:

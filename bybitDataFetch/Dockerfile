@@ -1,8 +1,8 @@
-# Используем официальный образ Node.js версии 22
+# Используем официальный образ Node.js версии 22 (на базе Alpine)
 FROM node:22-alpine
 
-# Установка пакета tzdata для работы с временными зонами
-RUN apk add --no-cache tzdata
+# Установка пакетов tzdata и curl (curl понадобится для healthcheck)
+RUN apk add --no-cache tzdata curl
 
 # Установка временной зоны UTC
 ENV TZ=UTC
@@ -10,16 +10,16 @@ ENV TZ=UTC
 # Устанавливаем рабочую директорию внутри контейнера
 WORKDIR /app
 
-# Копируем package.json и package-lock.json
+# Копируем файлы зависимостей (package.json и package-lock.json)
 COPY package*.json ./
 
-# Устанавливаем зависимости
+# Устанавливаем зависимости (убедитесь, что в package.json добавлен express)
 RUN npm install
 
 # Копируем исходный код приложения
 COPY . .
 
-# Указываем порт, который будет использовать приложение
+# Открываем порт 3000 (на котором будет слушать Express-сервер)
 EXPOSE 3000
 
 # Команда для запуска приложения с флагом --no-warnings

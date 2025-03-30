@@ -1,10 +1,40 @@
-//scheduler.js
 import pLimit from 'p-limit';
+import { Kafka } from 'kafkajs';
 import { getMarkets, fetchOHLCVForSymbol } from './bybit-api.js';
 import { saveBulkOhlcvData } from './db.js';
 import logger from './logger.js';
 
 const limit = pLimit(10);
+
+// Настройка Kafka
+const kafka = new Kafka({
+  clientId: 'bybit-data-fetch',
+  brokers: [process.env.KAFKA_BROKER || 'kafka:9092']
+});
+const producer = kafka.producer();
+
+async function initKafka() {
+  try {
+    await producer.connect();
+    logger.info('Kafka producer connected');
+  } catch (error) {
+    logger.error(`Kafka connection error: ${error.message}`);
+  }
+}
+
+async function sendKafkaNotification() {
+  try {
+    await producer.send({
+      topic: 'bybit-data-fetched',
+      messages: [
+        { value: JSON.stringify({ timestamp: new Date().toISOString(), status: 'done' }) }
+      ],
+    });
+    logger.info('Sent Kafka notification after data fetch.');
+  } catch (error) {
+    logger.error(`Error sending Kafka message: ${error.message}`);
+  }
+}
 
 async function retrySaveOhlcvData(data, collectedAt, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -45,8 +75,21 @@ async function processSymbol(symbol) {
   }
 }
 
-export function startScheduler(interval = 3600000) {
-  logger.info(`Scheduler started, interval: ${interval / 1000}s`);
+// Функция для расчёта задержки до следующего XX:10
+function getDelayToNextOccurrence() {
+  const now = new Date();
+  const next = new Date(now);
+  next.setMinutes(10, 0, 0); // Устанавливаем минуты = 10, секунды и миллисекунды = 0
+  if (now >= next) { 
+    // Если текущее время уже прошло XX:10, планируем на следующий час
+    next.setHours(next.getHours() + 1);
+  }
+  return next - now;
+}
+
+export async function startScheduler() {
+  await initKafka();
+  logger.info('Scheduler started. Job will run once per hour at minute 10 (XX:10).');
 
   async function job() {
     try {
@@ -61,11 +104,21 @@ export function startScheduler(interval = 3600000) {
       }
       
       logger.info('Scheduler cycle completed');
+      // После успешного завершения цикла отправляем уведомление в Kafka
+      await sendKafkaNotification();
     } catch (error) {
       logger.error(`Scheduler error: ${error.message}`);
     }
   }
 
-  setInterval(job, interval);
-  job().catch(error => logger.error(`Initial job failed: ${error.message}`));
+  async function scheduleNextRun() {
+    const delay = getDelayToNextOccurrence();
+    logger.info(`Next job scheduled to run in ${Math.round(delay / 1000)} seconds`);
+    setTimeout(async () => {
+      await job();
+      scheduleNextRun();
+    }, delay);
+  }
+
+  scheduleNextRun();
 }

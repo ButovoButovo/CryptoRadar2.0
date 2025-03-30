@@ -1,5 +1,6 @@
 //app.js
 import 'dotenv/config';
+import express from 'express';
 import { initDatabase } from './src/db.js';
 import { startScheduler } from './src/scheduler.js';
 import logger from './src/logger.js';
@@ -28,6 +29,18 @@ process.on('unhandledRejection', (reason) => {
     process.exit(1);
   }
 })();
+
+// Создание HTTP-сервера для health-check
+const app = express();
+const PORT = 3000;
+
+app.get('/health', (req, res) => {
+  res.send('OK');
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  logger.info(`Health server listening on port ${PORT}`);
+});
 
 // Корректное завершение процесса при SIGINT и SIGTERM
 process.on('SIGINT', () => {
